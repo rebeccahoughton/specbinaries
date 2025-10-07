@@ -11,10 +11,10 @@ Population synthesis also allows us to test out different
 * Semi-major axis distributions,
 * Eccentricity distributions, 
 * Mass-ratio distributions between the primary and secondary stars. 
-
+--------------
 
 ## Directory setup
---------------
+
 
 All of this software is written in python. The directory is structured as follows:
 
@@ -27,20 +27,21 @@ All of this software is written in python. The directory is structured as follow
 * makebinariesrv.py - functions used in rv_binary_pop.py (required for use, don't change)
 * binary_tree.py - create a 2D binary tree that can be used to statistically compare two 2D distributions (**Note: not needed for this work!**)
 * btree_plot.py - plotting file for the binary tree (**Note: not needed for this work!**)
-
+--------------
 
 
 ## How to use
---------------
+
 
 The main file for population synthesis is rv_binary_pop.py. You will also need the data files saved in the same directory, as well as makebinariesrv.py. The best way to use these files is therefore to either git clone the repository into your own workspace, or **download this reposity as a zip folder** and extract the contents. You can then edit the rv_binary_pop.py file locally and run the code using 
 ```
 python rv_binary_pop.py
 ```
 from the command line on your machine. 
+--------------
 
 ## Dependencies
-----------------
+
 
 To run this code, you will need python installed. You will also need the modules \texttt{numpy, matplotlib, pandas, astropy} and \texttt{scipy}. If you do not have any of these installed, you can use
 
