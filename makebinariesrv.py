@@ -1,11 +1,13 @@
 import numpy as np
+from astropy.constants import G, M_sun, au
+
+# Git check
 
 #--------------------------------------------------------------------------------
-#Sky projection function
 def project(a, ecc, inc, phi, mean, m1, m2):
     '''
-    Numerically solve for the eccentric anomaly using the Newton-Raphson method.
-    Variables:
+    Project the orbit onto the sky and return the radial velocity component.
+    Parameter:
         a    -> Semi-major axis
         ecc  -> Ecentricity
         inc  -> Inclination
@@ -17,9 +19,6 @@ def project(a, ecc, inc, phi, mean, m1, m2):
     '''
     # Start value for eccentric anomaly Ee is the mean anomaly M
     # which is random uniform 0-2pi
-    G = 6.67E-11
-    msun = 1.989e30
-    au = 1.5496e11
     Ee = mean
     old = mean
     # Eccentric anomaly solver
@@ -31,14 +30,12 @@ def project(a, ecc, inc, phi, mean, m1, m2):
 
     # Calculate true anomaly
     theta = 2*np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(0.5*Ee))
-    #theta = mean
 
     # Calculate true distance
     rt = a*(1-ecc*ecc)/(1+ecc*np.cos(theta))
 
     # Orbital velocity
-    vt = np.sqrt(G*(m1+m2)*msun * (2/(rt*au) - 1/(a*au)))
-    # print(vt)
+    vt = np.sqrt(G.value*(m1+m2)*M_sun.value * (2/(rt*au.value) - 1/(a*au.value)))
 
     # Flight path angle nu
     nu = np.arccos( np.sqrt( (1+ecc*np.cos(theta))/(2-rt/a) ) )
@@ -74,7 +71,8 @@ def project(a, ecc, inc, phi, mean, m1, m2):
     v[2] = vy*np.sin(inc)
     
     # Positions on the sky
-    #sep = np.sqrt(r[0]**2+r[2]**2)/dist
+    # If these were visual binaries, with a known separation, we would return:
+    # sep = np.sqrt(r[0]**2+r[2]**2)/dist
     
     # Return radial velocity (component in y direction)
     return(v[1])

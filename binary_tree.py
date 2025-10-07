@@ -1,6 +1,7 @@
 import numpy as np
+# If you don't have binarytree installed, do:
+# pip install binarytree
 from binarytree import build
-from sys import exit
 
 # ------------------------------------------------------------
 class Region:
@@ -41,6 +42,12 @@ class Region:
 
 # ------------------------------------------------------------
 class FindNodes:
+    ''' Class to find the nodes of a binary tree.
+    A 'node' is defined as the median value of the data
+    along the splitting axis. The tree is built to a
+    user-defined height or until the number of points
+    in a cell falls below a user-defined value.'''
+
     def __init__(self, data):
         self.data = data
         self.nodes = []
@@ -63,10 +70,15 @@ class FindNodes:
         return 
 
     def init_dict(self, data):
+        ''' Initialize the dictionary with the first level.'''
         self.book['level1'] = {}
         self.book['level1']['data_root'] = data
 
     def check_size(self, data, size):
+        ''' Check if the number of points in the cell
+            is less than or equal to the user-defined
+            minimum size. If so, append None to the
+            nodes list. '''
         if len(data[:,0])<=size:
             self.nodes.append(None)
 

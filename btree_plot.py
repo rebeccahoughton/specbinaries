@@ -1,10 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from sys import exit
 
 
-def plot_cells(data,ax,nodes,height,regions,col_def):
-    '''Plot the binary tree grid on an existing scatter plot.'''
+def plot_cells(data, ax, nodes, height, regions, col_def):
+    '''Plot the binary tree grid on an existing scatter plot.
+    Parameters:
+        data    -> 2D array of x and y data points
+        ax      -> Matplotlib axis object
+        nodes   -> List of nodes from the binary tree
+        height  -> Height of the binary tree
+        regions -> List of Region objects from the binary tree
+        col_def -> Colour for the grid lines
+    '''
     col = col_def
     al = 0.8
     # Getting colours for different levels
@@ -20,6 +27,7 @@ def plot_cells(data,ax,nodes,height,regions,col_def):
     # Plotting the boundaries
     ax.vlines(regions[0].xmin,ymin=regions[0].ymin,ymax=max(data[:,1]),color=col,ls="--",alpha=al,lw=1.2)
     ax.hlines(regions[0].ymin,xmin=regions[0].xmin,xmax=max(data[:,0]),color=col,ls="--",alpha=al,lw=1.2)
+    # Plotting the cells
     for r in regions:
         # col = cols[np.where(nodes==r.xmax)[0][0]] if len(np.where(nodes==r.xmax)[0])==1 else "k"
         ax.vlines(r.xmax,ymin=r.ymin,ymax=r.ymax,color=col,ls="--",alpha=al,lw=1.2)# if r.xmax<0.9*max(data[:,0]) else None
@@ -32,7 +40,12 @@ def plot_cells(data,ax,nodes,height,regions,col_def):
 
 
 def plot_scatter_hist(x, y, obs):
-    '''Plot a scatter plot with histograms on the x and y axes.'''
+    '''Plot a scatter plot with histograms on the x and y axes.
+    Parameters:
+        x   -> x data points
+        y   -> y data points
+        obs -> observed data points for histograms
+    '''
     def scatter_hist(x, y, ax, ax_histx, ax_histy):
         # no labels
         ax_histx.tick_params(axis="both", labelbottom=False, labelleft=False, length=0.1)
@@ -41,7 +54,7 @@ def plot_scatter_hist(x, y, obs):
         ax_histy.tick_params(axis="x", length=0)
 
         # the scatter plot:
-        ax.scatter(x, y,s=25,alpha=0.25,c="grey",edgecolor=None,label="Model")
+        ax.scatter(x, y, s=25, alpha=0.25,c="grey",edgecolor=None,label="Model")
 
         # now determine nice limits by hand:
         binwidth = 0.25
@@ -50,11 +63,11 @@ def plot_scatter_hist(x, y, obs):
 
         bins = np.arange(-lim, lim + binwidth, binwidth)
         bins = 40
-        ax_histx.hist(x, bins=bins,color="grey",alpha=0.5,density=True)
-        ax_histy.hist(y, bins=32,orientation='horizontal',alpha=0.5,color="grey",density=True)
+        ax_histx.hist(x, bins=bins, color="grey", alpha=0.5, density=True)
+        ax_histy.hist(y, bins=32, orientation='horizontal', alpha=0.5, color="grey", density=True)
         # Observed data
-        ax_histx.hist(obs[:,0],bins=40,color="#c9000a",density=True,alpha=0.5)
-        ax_histy.hist(obs[:,1],orientation='horizontal',bins=32,color="#c9000a",density=True,alpha=0.5)
+        ax_histx.hist(obs[:,0], bins=40, color="#c9000a", density=True, alpha=0.5)
+        ax_histy.hist(obs[:,1], orientation='horizontal', bins=32, color="#c9000a", density=True, alpha=0.5)
 
     # Start with a square Figure.
     fig = plt.figure(figsize=(8, 6))
@@ -73,7 +86,7 @@ def plot_scatter_hist(x, y, obs):
     ax.tick_params(axis="both",length=0)
 
     # Limits
-# Plotting 
+    # Plotting 
     max_x = max(x) + 0.085*(max(x)-min(x))
     max_y = max(y) + 0.085*(max(y)-min(y))
     min_x = min(x) - abs(0.085*(max(x)-min(x)))
