@@ -1,15 +1,14 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import pandas as pd
-import makebinariesrv as rvbin
-from sys import exit
+import makebinariesrv as rvbin # This is another file in the same directory
 from astropy.table import Table
-from scipy.stats import reciprocal
-from tqdm import tqdm
-from scipy.special import loggamma
-from multiprocessing import Pool, cpu_count
+from scipy.stats import ks_2samp
+from sys import exit
+
 # # Binary tree python files
+# # Likely not needed here, as we're comparing 1D distributions.
 # import binary_tree as btree
 # import btree_plot as btplot
 # from binary_tree import Region
@@ -22,10 +21,10 @@ mpl.rcParams['mathtext.fontset'] = 'stix'
 mpl.rcParams['font.family'] = 'STIXGeneral'
 mpl.rcParams['font.size'] = 14.4
 
-# ------------------------------------------------------------
+# ------------------------------------------------------------------------------
 class Params:
     '''
-    Generates inthe intial conditions for the fake binary population. 
+    Generates in the initial conditions for the fake binary population. 
     Variables:
         n           -> Number of test systems
         mean        -> Mean of the semi-major axis distribution
@@ -78,19 +77,20 @@ class Params:
         m_tot = np.random.choice(spec_data['Mass'], size=self.n)
 
         # Assuming a flat mass ratio distribution
+        # You can customise this if you want, to test different mass ratio distributions!
         q = np.random.uniform(0.2, 1, self.n)
         self.m1 = m_tot/(1+q)
         self.m2 = q*self.m1
-        # m1 = np.random.choice(all_objects['m1'], size=self.n)
-        # m2 = np.random.choice(all_objects['m2'], size=self.n)
         
 
-    # def errors(self):
-    #     '''Errors on the fake rv measurements from the real data distribution.'''
-    #     err_rv1 = np.random.choice(all_objects['errors'],size=self.n)
-    #     err_rv2 = np.random.choice(all_objects['errors'],size=self.n)
+    def errors(self):
+        '''Errors on the fake rv measurements drawn 
+           from the real data distribution.'''
+        err_rv1 = np.random.choice(rv_data['uncertRV'],size=self.n)
+        err_rv2 = np.random.choice(rv_data['uncertRV'],size=self.n)
 
 
+    # # Distance is relevant for visual binaries, not spectroscopic
     # def distance(self):
     #     '''Select the distance in kpc.'''
     #     if self.dshape == "flat":
@@ -108,8 +108,10 @@ class Params:
 
 
     def time_difference(self):
+        '''Select the time difference between the two observations
+           from the observed distribution.'''
         self.dtobs = np.random.choice(rv_data['deltaT'], size=self.n)
-# ------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 
 
 def move_companion(a, ecc, inc, phi, meani, m1, m2, dtobs):
@@ -144,7 +146,7 @@ def move_companion(a, ecc, inc, phi, meani, m1, m2, dtobs):
 def get_params(n, mean, std, ashape, max_ecc=None, dshape=None, alim=None):
     '''Get the orbital parameters of our sample.'''
 
-    # Getting orbital parameters
+    # Getting the orbital parameters of the system
     params = Params(n, mean, std, ashape, max_ecc, dshape, alim)
     params.semimajoraxis()   # in au
     params.eccentricity()    # dimensionless
@@ -152,10 +154,14 @@ def get_params(n, mean, std, ashape, max_ecc=None, dshape=None, alim=None):
     params.phase_params()    # in radians
     params.time_difference() # in days
 
-    # Initialise empty rv arrays
+    # Initialise empty rv arrays to store the radial velocities
     rv1 = np.zeros((n))
     rv2 = np.zeros((n))
-    # Calculate radial velocities for each system
+
+    # Calculate radial velocities for each fake system
+    # rv1 is the radial velocity at the first epoch
+    # rv2 is the radial velocity after it's moved along its orbit
+    # to the time of the second observation
     for i in range(n):
         rv1[i] = rvbin.project(params.a[i], 
                                params.ecc[i], 
@@ -178,7 +184,7 @@ def get_params(n, mean, std, ashape, max_ecc=None, dshape=None, alim=None):
     # Calculate the difference in rv and select an error
     drv = rv2 - rv1
     err_rv = drv * np.random.choice(rv_data['uncertRV']/rv_data['deltaRV'])
-
+    # Return
     return drv, err_rv, params
 
 
@@ -193,16 +199,19 @@ def selection_effects():
     '''Incorporate selection effects into the model.'''
     return
 
-
 # Set random seed
+# This makes the results reproducible
 np.random.seed(10)
 
-# Load in the observations
-rvs_pd = pd.read_csv('/home/rebecca/specbinaries/TableRV_nonSB_SB1.csv').dropna()
-MassAge_pd = pd.read_csv('/home/rebecca/specbinaries/TableSB_MassAge.csv').dropna()
+# Load in the observations using pandas, dropping all the NaNs
+rvs_pd = pd.read_csv('TableRV_nonSB_SB1.csv').dropna()
+MassAge_pd = pd.read_csv('TableSB_MassAge.csv').dropna()
+
+# Convert into astropy table (because I like astropy tables)
 rv_data = Table.from_pandas(rvs_pd)
 spec_data = Table.from_pandas(MassAge_pd)
 
+# Print the column names to check everything has loaded in correctly
 print("Available data:")
 print(spec_data.colnames)
 print(rv_data.colnames)
@@ -233,7 +242,7 @@ binaries  = spec_data['obj'][mask]
 #                alim=[0,1],
 #                n=1000)
 
-drv, err_rv, params = get_params(n=1700,
+drv, err_rv, params = get_params(n=1000,
                                  mean=100,
                                  std=50,
                                  ashape='lognormal',
@@ -245,50 +254,60 @@ print(min(np.abs(rv_data['deltaRV'])))
 print(np.shape(drv[drv > min(rv_data['deltaRV'])]))
 # exit()
 
-# LOOK AT THE ORBITAL PARAMETERS FOR SOME OF THE POINTS WITH THE HIGHEST RVs
-fig, ax = plt.subplots()
-ax.scatter(params.a, np.abs(drv))
-ax.set_xlabel("Semi-major axis (au)")
-ax.set_ylabel(r"$\Delta$RV")
-# plt.show()
-# exit()
+def compare_distributions(model_data, obs_data):
+    '''Compare the distributions of the observed and model delta RVs.'''
+    # Use a KS test to compare the two distributions
+    ks_stat, p_value = ks_2samp(model_data, obs_data)
+    print("KS statistic: {:.3f}, p-value: {:.3f}".format(ks_stat, p_value))
+    return
+
+# A low value of the KS statistic indicates that the two distributions are similar
+compare_distributions(drv, rv_data['deltaRV'])
+exit()
 
 # Plot histograms of all the orbital parameters as a sanity check
 fig, ax = plt.subplots(nrows=2, ncols=3, figsize=[12,6])
 ax[0,0].hist(params.a, bins=20)
-ax[0,0].set_xlabel("Semi-major axis (au)")
 ax[0,1].hist(params.ecc, bins=20)
-ax[0,1].set_xlabel("Eccentricity")
 ax[0,2].hist(params.inc, bins=20)
-ax[0,2].set_xlabel("Inclination (radians)")
 ax[1,0].hist(params.phi, bins=20)
-ax[1,0].set_xlabel("Orientation (radians)")
 ax[1,1].hist(params.meani, bins=20)
-ax[1,1].set_xlabel("Mean anomaly (radians)")
 ax[1,2].hist(params.dtobs, bins=20)
+# Labels
+ax[0,0].set_xlabel("Semi-major axis (au)")
+ax[0,1].set_xlabel("Eccentricity")
+ax[0,2].set_xlabel("Inclination (radians)")
+ax[1,0].set_xlabel("Orientation (radians)")
+ax[1,1].set_xlabel("Mean anomaly (radians)")
 ax[1,2].set_xlabel("Time between observations (days)")
-# plt.show()
-# exit()
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=[18,6])
+
+# Now we want to compare the parameters of the fake binaries to the observed
+# binaries. We can do this by plotting histograms of the semi-major axis (fake)
+# and delta RV distributions (fake and observed).
+
+# When the fake and observed delta RV distributions match, we can conclude that
+# the semi-major axis distribution we assumed for the fake binaries is a good
+# representation of the true semi-major axis distribution of the observed
+# binaries.
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=[9,4])
 ax[0].hist(params.a, bins=20)
 ax[0].set_xlabel("Semi-major axis (au)")
 
-w=1
 ax[1].hist(drv, 
-           bins=np.arange(min(drv), max(drv) + w, w), 
+           bins=np.arange(min(drv), max(drv) + 1, 1), 
            color="r", 
            label='model', 
            alpha=0.5)
-
 ax[1].hist(rv_data['deltaRV'], 
-           bins=np.arange(min(rv_data['deltaRV']), max(rv_data['deltaRV']) + w, w), 
+           bins=np.arange(min(rv_data['deltaRV']), max(rv_data['deltaRV']) + 1, 1), 
            color="b", 
            label='observed', 
            alpha=0.3)
-
+ax[0].tick_params(axis="both", direction="in")
+ax[1].tick_params(axis="both", direction="in")
+ax[0].set_ylabel("Number of binaries")
 ax[1].set_xlabel("delta RV")
 ax[1].set_xlim(-20,20)
 ax[1].legend()
-
 plt.show()
