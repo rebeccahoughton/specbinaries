@@ -31,17 +31,14 @@ class Params:
         std         -> Standard deviation of semi-major axis distribution
         ashape      -> The shape of the semi-major axis distribution. Either
                        "lognormal", "gaussian", or "flat". 
-        dshape      -> The shape of the distance distribution. Either "flat"
-                       or "obs" (for random sampling from observed distribution). 
         alim        -> Limits for the flat semi-major axis distribution.
         dlim        -> Limits on distances in the sample. 
     Returns:
         self.a, self.ecc, self.inc, self.phi, self.meani, self.dmag, self.dist
     '''
 
-    def __init__(self, n, mean, std, ashape, max_ecc=None, dshape=None, alim=None):
+    def __init__(self, n, mean, std, ashape, max_ecc=None, alim=None):
         self.ashape = ashape
-        self.dshape = dshape
         self.alim = alim
         self.max_ecc = max_ecc
         self.mean = mean
@@ -117,7 +114,7 @@ class Params:
 def move_companion(a, ecc, inc, phi, meani, m1, m2, dtobs):
     '''Move the companion along its orbit to the time of the second observation.
        Args:
-           a (float): Semi-major axis of the orbit.
+           a (float):   Semi-major axis of the orbit.
            ecc (float): Eccentricity of the orbit.
            inc (float): Inclination of the orbit.
            phi (float): Longitude of the ascending node.
@@ -130,24 +127,25 @@ def move_companion(a, ecc, inc, phi, meani, m1, m2, dtobs):
             rv2 (float): Radial velocity of the secondary star at the time 
                          of the second observation.
     '''
-    # Equal chance of being either prograde or retrograde
+    # Equal chance of being either prograde (+1) or retrograde (-1)
     f = np.random.choice([-1,1])
 
-    #Period (in days)
+    # Period (in days)
     T = np.sqrt(a**3/(m1 + m2))
 
     # Fraction of orbit moved
     dM = (dtobs/T)*2*np.pi
     meanf = meani + (f*dM)
+    # Move companion and get new radial velocity
     rv2 = rvbin.project(a, ecc, inc, phi, meanf, m1, m2)
     return rv2
 
 
-def get_params(n, mean, std, ashape, max_ecc=None, dshape=None, alim=None):
+def get_params(n, mean, std, ashape, max_ecc=None, alim=None):
     '''Get the orbital parameters of our sample.'''
 
     # Getting the orbital parameters of the system
-    params = Params(n, mean, std, ashape, max_ecc, dshape, alim)
+    params = Params(n, mean, std, ashape, max_ecc, alim)
     params.semimajoraxis()   # in au
     params.eccentricity()    # dimensionless
     params.masses()          # in solar masses
@@ -199,15 +197,19 @@ def selection_effects():
     '''Incorporate selection effects into the model.'''
     return
 
-# Set random seed
-# This makes the results reproducible
+
+
+# ================== Example usage ==================
+
+
+# This sets the random seed and makes the results reproducible
 np.random.seed(10)
 
 # Load in the observations using pandas, dropping all the NaNs
 rvs_pd = pd.read_csv('TableRV_nonSB_SB1.csv').dropna()
 MassAge_pd = pd.read_csv('TableSB_MassAge.csv').dropna()
 
-# Convert into astropy table (because I like astropy tables)
+# Convert into astropy table (because I like astropy tables more)
 rv_data = Table.from_pandas(rvs_pd)
 spec_data = Table.from_pandas(MassAge_pd)
 
@@ -233,26 +235,38 @@ for i in range(len(spec_data['obj'])):
 mask = np.where((spec_data['SpecBin']=='YES') & (spec_data['SBtype']=='SB1'))[0]
 binaries  = spec_data['obj'][mask]
 
-# Calling the model
-# model = Params(mean=250,
-#                std=100,
-#                ashape='lognormal',
-#                dshape='obs',
-#                theta=[250,100,10,10],
-#                alim=[0,1],
-#                n=1000)
 
-drv, err_rv, params = get_params(n=1000,
-                                 mean=100,
-                                 std=50,
-                                 ashape='lognormal',
-                                 max_ecc=0.5)
-                                #  ashape='flat',
+# Generate the fake binary population
+# ===================================
+# This is where you can change the parameters of the fake binary population
+# to see how they affect the delta RV distribution.
+# For example, you can change the mean and standard deviation of the
+# semi-major axis distribution, or the shape of the distribution.
+# You can also change the maximum eccentricity of the orbits.
+# ===================================
+drv, err_rv, params = get_params(n=1000,                # Number of fake binaries
+                                 mean=100,              # Mean of semi-major axis distribution
+                                 std=50,                # Standard deviation of semi-major axis distribution
+                                 ashape='lognormal',    # Shape of semi-major axis distribution
+                                 max_ecc=0.5)           # Maximum eccentricity of the orbit (i.e. if max_ecc=0.5, ecc is uniform between 0 and 0.5)
                                 #  alim=[2000,5000])
 
-print(min(np.abs(rv_data['deltaRV'])))
-print(np.shape(drv[drv > min(rv_data['deltaRV'])]))
-# exit()
+
+# Print out a bit of information about the fake binary population
+print(" ")
+print("Number of binaries generated: {}".format(len(drv)))
+limit = min(np.abs(rv_data['deltaRV']))
+print("Number of fake binaries with delta RV > min observed delta RV ({:.3e}): {}".format(limit, len(drv[drv > limit])))
+print("Therefore {}% of the fake binaries would be detected as binaries,".format(100*len(drv[drv > limit])/len(drv)))
+print("with these sensitivity limits.")
+print(" ")
+
+# The main goal of this script is to compare the delta RV distributions
+# of the fake binaries to the observed binaries.
+# One example of how to do this is with a KS test.
+# A low KS statistic indicates that the two distributions are similar.
+# A high p-value indicates that the two distributions are similar.
+
 
 def compare_distributions(model_data, obs_data):
     '''Compare the distributions of the observed and model delta RVs.'''
@@ -263,10 +277,19 @@ def compare_distributions(model_data, obs_data):
 
 # A low value of the KS statistic indicates that the two distributions are similar
 compare_distributions(drv, rv_data['deltaRV'])
-exit()
+
+
+# 
+# You can add your own tests, includning comparing the mean / median / 
+# standard deviation of the two distributions.
+# 
+# 
+
+
+# ================== Data visualisation ==================
 
 # Plot histograms of all the orbital parameters as a sanity check
-fig, ax = plt.subplots(nrows=2, ncols=3, figsize=[12,6])
+fig, ax = plt.subplots(nrows=2, ncols=3, figsize=[12,7])
 ax[0,0].hist(params.a, bins=20)
 ax[0,1].hist(params.ecc, bins=20)
 ax[0,2].hist(params.inc, bins=20)
@@ -281,6 +304,10 @@ ax[1,0].set_xlabel("Orientation (radians)")
 ax[1,1].set_xlabel("Mean anomaly (radians)")
 ax[1,2].set_xlabel("Time between observations (days)")
 
+for i in range(2):
+    for j in range(3):
+        ax[i,j].tick_params(axis="both", direction="in")
+
 
 # Now we want to compare the parameters of the fake binaries to the observed
 # binaries. We can do this by plotting histograms of the semi-major axis (fake)
@@ -290,6 +317,7 @@ ax[1,2].set_xlabel("Time between observations (days)")
 # the semi-major axis distribution we assumed for the fake binaries is a good
 # representation of the true semi-major axis distribution of the observed
 # binaries.
+
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=[9,4])
 ax[0].hist(params.a, bins=20)
 ax[0].set_xlabel("Semi-major axis (au)")
@@ -309,5 +337,7 @@ ax[1].tick_params(axis="both", direction="in")
 ax[0].set_ylabel("Number of binaries")
 ax[1].set_xlabel("delta RV")
 ax[1].set_xlim(-20,20)
+ax[0].set_title("Fake binary semi-major axis")
+ax[1].set_title("Fake vs observed $\Delta$ RV")
 ax[1].legend()
 plt.show()
