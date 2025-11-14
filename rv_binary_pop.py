@@ -245,19 +245,29 @@ binaries  = spec_data['obj'][mask]
 # You can also change the maximum eccentricity of the orbits.
 # ===================================
 drv, err_rv, params = get_params(n=1000,                # Number of fake binaries
-                                 mean=100,              # Mean of semi-major axis distribution
-                                 std=50,                # Standard deviation of semi-major axis distribution
+                                 mean=20,              # Mean of semi-major axis distribution
+                                 std=2,                # Standard deviation of semi-major axis distribution
                                  ashape='lognormal',    # Shape of semi-major axis distribution
-                                 max_ecc=0.5)           # Maximum eccentricity of the orbit (i.e. if max_ecc=0.5, ecc is uniform between 0 and 0.5)
+                                 max_ecc=0.0)           # Maximum eccentricity of the orbit (i.e. if max_ecc=0.5, ecc is uniform between 0 and 0.5)
                                 #  alim=[2000,5000])
 
+# Turn the drv array into absolute values, so that we can 
+# compare to the observed delta RVs
+drv_abs = np.abs(drv)
 
 # Print out a bit of information about the fake binary population
 print(" ")
 print("Number of binaries generated: {}".format(len(drv)))
-limit = min(np.abs(rv_data['deltaRV']))
-print("Number of fake binaries with delta RV > min observed delta RV ({:.3e}): {}".format(limit, len(drv[drv > limit])))
-print("Therefore {}% of the fake binaries would be detected as binaries,".format(100*len(drv[drv > limit])/len(drv)))
+
+# Get the minimum observed delta RV
+# to use as our detection limit
+limit = min(np.abs(rv_data['uncertRV']))
+# print(np.sort(abs(rv_data['uncertRV']))[:10])
+# exit()
+
+# Now print the number of fake binaries that would be detected
+print("Number of fake binaries with delta RV > min observed delta RV ({:.3e}): {}".format(limit, len(drv_abs[drv_abs > limit])))
+print("Therefore {}% of the fake binaries would be detected as binaries,".format(100*len(drv_abs[drv_abs > limit])/len(drv_abs)))
 print("with these sensitivity limits.")
 print(" ")
 
